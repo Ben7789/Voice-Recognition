@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import os
+import soundfile as sf
+import noisereduce as nr
 
 
 audio_folder = '/Users/rendvalor/downloads/test5'
@@ -11,9 +13,44 @@ features = []
 labels = []
 
 
+def clean(audio, sr, noise=0.01, silence=-40):
+    clean_audio = audio.copy()
+    # Removes silence from audio and creates mask for silent parts
+    audio_db = librosa.amplitude_to_db(np.abs(clean_audio), ref=np.max)
+    speech = audio_db > silence
+    # Applies mask
+    audio_final = clean_audio[speech]
+    #Reduces background noise
+    audio_final = nr.reduce_noise(audio_final, sr=sr)
+    #Plots signal before and after cleaning
+    plt.figure()
+    plt.plot(audio)
+    plt.figure()
+    plt.plot(audio_final)
+    
+    return audio_final
+
+
+## Check that cleaned audio sounds better and only includes speech. Not needed for final product
+##extract audio of choice
+#af, sr = clean(r'C:\Users\LBlan\OneDrive - The University of Nottingham\Voice Recognition IDP Project\Audio samples\EB4.wav')
+#output = 'clean6.wav'
+#sf.write(output, af, sr)
+
+
+
+
+
+
+
+
+
 for filename in os.listdir(audio_folder):
     filepath = os.path.join(audio_folder, filename)
     signal, sample_rate = librosa.load(filepath, sr=None, mono=True)
+    
+    #cleans the audio
+    signal= clean(signal, sample_rate)
 
     mfcc = librosa.feature.mfcc(y=signal, sr=sample_rate, n_mfcc=100)
     mfcc_mean = np.mean(mfcc, axis=1)
