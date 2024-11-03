@@ -23,10 +23,10 @@ def clean(audio, sr, noise=0.01, silence=-40):
     #Reduces background noise
     audio_final = nr.reduce_noise(audio_final, sr=sr)
     #Plots signal before and after cleaning
-    plt.figure()
-    plt.plot(audio)
-    plt.figure()
-    plt.plot(audio_final)
+    #plt.figure()
+    #plt.plot(audio)
+    #plt.figure()
+    #plt.plot(audio_final)
     
     return audio_final
 
