@@ -49,7 +49,20 @@ def pca(mfcc):
 #sf.write(output, af, sr)
 
 
+noise = []
+sound2 = sound.copy()
+# Set a length of the list to 10
+for i in range(len(sound)):
+    noise1 = random.uniform(-0.05, 0.05)
+    sound2[i]= sound[i] + noise1
+    noise.append(noise1)
 
+plt.figure()
+plt.plot(noise[:1000])
+plt.figure()
+plt.plot(sound)
+plt.figure()
+plt.plot(sound2)
 
 
 
