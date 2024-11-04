@@ -30,6 +30,17 @@ def clean(audio, sr, noise=0.01, silence=-40):
     
     return audio_final
 
+def pca(mfcc):
+    meaned = mfcc - np.mean(mfcc, axis=0)
+    standardised = meaned/np.std(mfcc, axis=0)
+    cov = np.cov(standardised.T)
+    values, vectors = np.linalg.eig(cov)
+    idx = values.argsort()[::-1]
+    values = values[idx]
+    vectors = vectors[:,idx]
+    pca = np.dot(standardised, vectors[:,:2])
+    return pca
+
 
 ## Check that cleaned audio sounds better and only includes speech. Not needed for final product
 ##extract audio of choice
@@ -61,6 +72,7 @@ for filename in os.listdir(audio_folder):
 
 features = StandardScaler().fit_transform(features)
 pca = PCA(n_components=2)
+pca = pca(features)
 principal_components = pca.fit_transform(features)
 
 
