@@ -75,7 +75,9 @@ for filename in os.listdir(audio_folder):
     for i in range(len(signal)):
         noise = np.random.uniform(-1e-3,1e-3)
         signal[i] += noise
-        #signal[i] = clean(signal[i], sample_rate[i])
+        
+    signal = clean(signal, sample_rate) #full cleaning
+    #signal = nr.reduce_noise(signal, sample_rate) noise reduction only
     mfcc_mean = extract_mfcc(signal, sample_rate, n_mfcc=40)
     features.append(mfcc_mean)
     labels.append(filename)
