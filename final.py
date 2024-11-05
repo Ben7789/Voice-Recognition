@@ -80,7 +80,7 @@ for filename in os.listdir(audio_folder):
     features.append(mfcc_mean)
     labels.append(filename)
 
-test_file_path = '/Users/rendvalor/pictures/test/Z-196.wav'
+test_file_path = '/Users/rendvalor/pictures/test/OSR_uk_000_0022_8k.wav'
 test_signal, test_sample_rate = librosa.load(test_file_path, sr=None, mono=True)
 test_mfcc_mean = extract_mfcc(test_signal, test_sample_rate, n_mfcc=40)
 
@@ -186,8 +186,8 @@ for i in range(len(centroids)):
         elif i == 7:
             print('Speaker is LB')
             
-    else:
-        print('speaker not in plot')
+else:
+    print('speaker not in plot')
         
             
 smallest_distance = np.argmin(distances)
@@ -219,3 +219,4 @@ handles.append(plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='yell
 legend_labels.append('Test Sample')
 plt.legend(handles, legend_labels, title="Label Key", bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.tight_layout()
+plt.grid()
