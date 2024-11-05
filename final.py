@@ -72,15 +72,15 @@ labels = []
 for filename in os.listdir(audio_folder):
     filepath = os.path.join(audio_folder, filename)
     signal, sample_rate = librosa.load(filepath, sr=None, mono=True)
-    #signal= clean(signal, sample_rate)
-    '''for i in range(len(signal)):
-        noise = np.random.uniform(-1,1)
-        signal[i] += noise'''
+    for i in range(len(signal)):
+        noise = np.random.uniform(-1e-3,1e-3)
+        signal[i] += noise
+        #signal[i] = clean(signal[i], sample_rate[i])
     mfcc_mean = extract_mfcc(signal, sample_rate, n_mfcc=40)
     features.append(mfcc_mean)
     labels.append(filename)
 
-test_file_path = '/Users/rendvalor/pictures/test/OSR_uk_000_0022_8k.wav'
+test_file_path = '/Users/rendvalor/pictures/test/Z-196.wav'
 test_signal, test_sample_rate = librosa.load(test_file_path, sr=None, mono=True)
 test_mfcc_mean = extract_mfcc(test_signal, test_sample_rate, n_mfcc=40)
 
@@ -151,7 +151,7 @@ for key, color in color_map.items():
     centroid = np.mean(principal_components[indices], axis=0)
     var_x = np.var(principal_components[indices][:,0])
     var_y = np.var(principal_components[indices][:,1])
-    var_rad = np.sqrt((var_x + var_y) / 2)
+    var_rad = np.sqrt((var_x + var_y) / 2) #radius of 1 SD
     var_rads.append(var_rad)
     plt.scatter(centroid[0], centroid[1], color=color, marker='X', s=200, label=f'Centroid {key}')
     centroids.append(centroid)
@@ -191,26 +191,6 @@ else:
         
             
 smallest_distance = np.argmin(distances)
-
-'''if smallest_distance == 0:
-    print('Speaker is Z')
-elif smallest_distance == 1:
-    print('Speaker is Andrea')
-elif smallest_distance == 2:
-    print('Speaker is Jonathan')
-elif smallest_distance == 3:
-    print('Speaker is EB')
-elif smallest_distance == 4:
-    print('Speaker is FB')
-elif smallest_distance == 5:
-    print('Speaker is GB')
-elif smallest_distance == 6:
-    print('Speaker is Jont')
-elif smallest_distance == 7:
-    print('Speaker is LB')
-else:
-    print('Not in plot')'''
-    
     
 plt.scatter(test_principal_component[0], test_principal_component[1], color='yellow', marker='o', s=100, label='Test Sample')
 handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in color_map.values()]
