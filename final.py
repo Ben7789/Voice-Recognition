@@ -30,7 +30,7 @@ def create_mel_filter_bank(sample_rate, n_fft, n_mels):
         
     return filters
 
-def extract_mfcc(signal, sample_rate, n_mfcc, n_fft=2048, hop_length=512, n_mels=42):
+def extract_mfcc(signal, sample_rate, n_mfcc, n_fft=2048, hop_length=512, n_mels=80):
     emphasized_signal = pre_emphasis(signal)
     framed_signal = librosa.util.frame(emphasized_signal, frame_length=n_fft, hop_length=hop_length).T
     window = scipy.signal.windows.hamming(n_fft)
@@ -72,17 +72,17 @@ labels = []
 for filename in os.listdir(audio_folder):
     filepath = os.path.join(audio_folder, filename)
     signal, sample_rate = librosa.load(filepath, sr=None, mono=True)
-    '''signal= clean(signal, sample_rate)
-    for i in range(len(signal)):
-        noise = np.random.uniform(-0.01,0.01)
+    #signal= clean(signal, sample_rate)
+    '''for i in range(len(signal)):
+        noise = np.random.uniform(-1,1)
         signal[i] += noise'''
-    mfcc_mean = extract_mfcc(signal, sample_rate, n_mfcc=42)
+    mfcc_mean = extract_mfcc(signal, sample_rate, n_mfcc=40)
     features.append(mfcc_mean)
     labels.append(filename)
 
 test_file_path = '/Users/rendvalor/pictures/test/Z-196.wav'
 test_signal, test_sample_rate = librosa.load(test_file_path, sr=None, mono=True)
-test_mfcc_mean = extract_mfcc(test_signal, test_sample_rate, n_mfcc=42)
+test_mfcc_mean = extract_mfcc(test_signal, test_sample_rate, n_mfcc=40)
 
 features.append(test_mfcc_mean)
 labels.append("Test Sample")
