@@ -140,6 +140,7 @@ for i in range(len(labels) - 1):
     plt.scatter(principal_components[i, 0], principal_components[i, 1], color=color)
 
 centroids = []
+var_rads = []
 
 for key, color in color_map.items():
     indices = []
@@ -151,6 +152,7 @@ for key, color in color_map.items():
     var_x = np.var(principal_components[indices][:,0])
     var_y = np.var(principal_components[indices][:,1])
     var_rad = np.sqrt((var_x + var_y) / 2)
+    var_rads.append(var_rad)
     plt.scatter(centroid[0], centroid[1], color=color, marker='X', s=200, label=f'Centroid {key}')
     centroids.append(centroid)
     
@@ -165,10 +167,32 @@ for i in range(len(centroids)):
     centroid = centroids[i]
     squared_diffs = np.abs(centroid - test_principal_component) ** 2
     distances[i] = np.sqrt(np.sum(squared_diffs))
-
+    
+    if distances[i] < 4*var_rads[i]:
+        if i == 0:
+            print('Speaker is Z')
+        elif i == 1:
+            print('Speaker is Andrea')
+        elif i == 2:
+            print('Speaker is Jonathan')
+        elif i == 3:
+            print('Speaker is EB')
+        elif i == 4:
+            print('Speaker is FB')
+        elif i == 5:
+            print('Speaker is GB')
+        elif i == 6:
+            print('Speaker is Jont')
+        elif i == 7:
+            print('Speaker is LB')
+            
+    else:
+        print('speaker not in plot')
+        
+            
 smallest_distance = np.argmin(distances)
 
-if smallest_distance == 0:
+'''if smallest_distance == 0:
     print('Speaker is Z')
 elif smallest_distance == 1:
     print('Speaker is Andrea')
@@ -185,8 +209,9 @@ elif smallest_distance == 6:
 elif smallest_distance == 7:
     print('Speaker is LB')
 else:
-    print('Not in plot')
-
+    print('Not in plot')'''
+    
+    
 plt.scatter(test_principal_component[0], test_principal_component[1], color='yellow', marker='o', s=100, label='Test Sample')
 handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in color_map.values()]
 legend_labels = list(color_map.keys())
