@@ -1,0 +1,346 @@
+import numpy as np
+import scipy.fftpack
+import scipy.signal
+import pandas as pd
+import os
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn import decomposition
+import librosa
+from math import log10, floor
+from scipy import signal as sig
+import random 
+from scipy.signal import medfilt
+import scipy.fftpack as fft
+
+def mel_scale(freq):
+    return 2595 * np.log10(1 + freq / 700)
+
+def inverse_mel_scale(mel):
+    return 700 * (10**(mel / 2595) - 1)
+
+def pre_emphasis(signal):
+    return np.append(signal[0], signal[1:] - 0.97 * signal[:-1])
+
+def create_mel_filter_bank(sample_rate, n_fft, n_mels):
+    mel_points = np.linspace(mel_scale(0), mel_scale(sample_rate / 2), n_mels + 2)
+    hz_points = inverse_mel_scale(mel_points)
+    bin_points = np.round((n_fft + 1) * hz_points / sample_rate).astype(int)
+    filters = np.zeros((n_mels, (n_fft // 2 + 1)))
+    
+    for i in range(1, n_mels + 1):
+        filters[i - 1, bin_points[i - 1]:bin_points[i]] = np.linspace(0, 1, bin_points[i] - bin_points[i - 1])
+        filters[i - 1, bin_points[i]:bin_points[i + 1]] = np.linspace(1, 0, bin_points[i + 1] - bin_points[i])
+        
+    return filters
+
+def extract_mfcc(signal, sample_rate, n_mfcc, n_fft=2048, hop_length=512, n_mels=80):
+    emphasized_signal = pre_emphasis(signal)
+    framed_signal = librosa.util.frame(emphasized_signal, frame_length=n_fft, hop_length=hop_length).T
+    window = scipy.signal.windows.hamming(n_fft)
+    windowed_frames = framed_signal * window
+    power_spectrum = (np.abs(np.fft.rfft(windowed_frames, n_fft)) ** 2) / n_fft
+    mel_filter_bank = create_mel_filter_bank(sample_rate, n_fft, n_mels)
+    mel_spectrogram = np.dot(power_spectrum, mel_filter_bank.T)
+    log_mel_spectrogram = np.log(mel_spectrogram + 1e-10)
+    mfcc = scipy.fftpack.dct(log_mel_spectrogram, axis=1, norm='ortho')[:, :n_mfcc]
+    return np.mean(mfcc, axis=0)
+
+
+def bandstop_filter(signal, sr, lowcut =8900, highcut =9050, order=6):
+    nyq = sr*0.5
+    low = lowcut / nyq
+    high = highcut / nyq
+    sigfft = np.fft.fft(signal)
+    b, a = sig.butter(order, [low, high], btype='bandstop')
+    y1 = sig.lfilter(b, a, sigfft)
+    y = np.fft.ifft(y1)
+    return y.real
+
+def clean(audio,sr):
+    clean_audio = audio.copy()
+    S_full, phase = librosa.magphase(librosa.stft(audio))
+    noise_power = np.mean(S_full[:, :int(sr*0.1)], axis=1)
+    mask = S_full > noise_power[:, None]
+    mask = mask.astype(float)
+    mask = medfilt(mask, kernel_size=(1, 5))
+    s_clean = S_full * mask
+    audio_final = librosa.istft(s_clean * phase)
+    audio_final = bandstop_filter(clean_audio, sr)
+    
+
+    return audio_final
+
+
+
+def pca(features):
+    meaned = features - np.mean(features, axis=0)
+    standardised = meaned / np.std(features, axis=0)
+    cov = np.cov(standardised.T)
+    values, vectors = np.linalg.eig(cov)
+    idx = values.argsort()[::-1]
+    values = values[idx]
+    vectors = vectors[:, idx]
+    pca = np.dot(standardised, vectors[:, :2])
+    vectors1 = np.dot(standardised, vectors)
+    return pca, values, vectors1
+
+audio_folder = '/Users/LBlan/OneDrive - The University of Nottingham/Voice Recognition IDP Project/new samples'
+features = []
+labels = []
+
+for filename in os.listdir(audio_folder):
+    filepath = os.path.join(audio_folder, filename)
+    signal, sample_rate = librosa.load(filepath, sr=None, mono=True)
+    '''noise = []
+    for i in range(len(signal)):
+        noise1 = random.uniform(-0.005, 0.005)
+        #signal[i]= signal[i] + noise1
+        noise.append(noise1)
+    signal = signal+noise'''
+    signal = clean(signal, sample_rate) #full cleaning
+    mfcc_mean = extract_mfcc(signal, sample_rate, n_mfcc=40)
+    features.append(mfcc_mean)
+    labels.append(filename)
+
+test_file_path = '/Users/LBlan/OneDrive - The University of Nottingham/Voice Recognition IDP Project/audios/K1.wav'
+test_signal, test_sample_rate = librosa.load(test_file_path, sr=None, mono=True)
+
+test_mfcc_mean = extract_mfcc(test_signal, test_sample_rate, n_mfcc=40)
+features.append(test_mfcc_mean)
+labels.append("Test Sample")
+
+scaler = StandardScaler()
+features = scaler.fit_transform(features)
+principal_components, e_values, e_vectors = pca(features)
+
+
+test_principal_component = principal_components[-1]
+principal_components = principal_components[:-1]
+
+color_map = {
+    'Z': 'red',
+    'Andrea': 'blue',
+    'Jonathan': 'green',
+    'EB': 'purple',
+    'FB': 'orange',
+    'GB': 'cyan',
+    'Jont': 'magenta',
+    'LB': 'black'
+}
+
+plt.figure(figsize=(10, 7))
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.title('Speaker Clustering in Voice Space')
+
+for i in range(len(labels) - 1):
+    label = labels[i]
+    if label.startswith('Z'):
+        color = 'red'
+        label_key = 'Z'
+    elif label.startswith('Andrea'):
+        color = 'blue'
+        label_key = 'Andrea'
+    elif label.startswith('Jonathan'):
+        color = 'green'
+        label_key = 'Jonathan'
+    elif label.startswith('EB'):
+        color = 'purple'
+        label_key = 'EB'
+    elif label.startswith('FB'):
+        color = 'orange'
+        label_key = 'FB'
+    elif label.startswith('GB'):
+        color = 'cyan'
+        label_key = 'GB'
+    elif label.startswith('Jont'):
+        color = 'magenta'
+        label_key = 'Jont'
+    elif label.startswith('LB'):
+        color = 'black'
+        label_key = 'LB'
+    
+    plt.scatter(principal_components[i, 0], principal_components[i, 1], color=color)
+
+centroids = []
+var_rads = []
+
+for key, color in color_map.items():
+    indices = []
+    for i in range(len(labels)):
+        if labels[i].startswith(key):
+            indices.append(i)
+    
+    centroid = np.mean(principal_components[indices], axis=0)
+    var_x = np.var(principal_components[indices][:,0])
+    var_y = np.var(principal_components[indices][:,1])
+    var_rad = np.sqrt((var_x + var_y) / 2) #radius of 1 SD
+    var_rads.append(var_rad)
+    plt.scatter(centroid[0], centroid[1], color=color, marker='X', s=200, label=f'Centroid {key}')
+    centroids.append(centroid)
+    
+    for i in range (1,5):
+        circle = plt.Circle(centroid, i*var_rad, color=color, fill=False, linestyle='--', label='Variance Circle')
+        plt.gca().add_artist(circle)
+    
+
+distances = np.zeros(len(centroids))
+
+for i in range(len(centroids)):
+    centroid = centroids[i]
+    squared_diffs = np.abs(centroid - test_principal_component) ** 2
+    distances[i] = np.sqrt(np.sum(squared_diffs))
+    
+    if distances[i] < 4*var_rads[i]:
+        if i == 0:
+            print('Speaker is Z')
+        elif i == 1:
+            print('Speaker is Andrea')
+        elif i == 2:
+            print('Speaker is Jonathan')
+        elif i == 3:
+            print('Speaker is EB')
+        elif i == 4:
+            print('Speaker is FB')
+        elif i == 5:
+            print('Speaker is GB')
+        elif i == 6:
+            print('Speaker is Jont')
+        elif i == 7:
+            print('Speaker is LB')
+            
+else:
+    print('speaker not in plot')
+        
+            
+smallest_distance = np.argmin(distances)
+    
+plt.scatter(test_principal_component[0], test_principal_component[1], color='yellow', marker='o', s=100, label='Test Sample')
+handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in color_map.values()]
+legend_labels = list(color_map.keys())
+handles.append(plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='yellow', markersize=10))
+legend_labels.append('Test Sample')
+plt.legend(handles, legend_labels, title="Label Key", bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.grid()
+
+
+
+sound, sr = librosa.load(r'C:\Users\LBlan\OneDrive - The University of Nottingham\Voice Recognition IDP Project\audios\EB4.wav')
+noise = []
+sound2 = sound.copy()
+
+for i in range(len(sound)):
+    noise1 = random.uniform(-0.05, 0.05)
+    sound2[i]= sound[i] + noise1
+    noise.append(noise1)
+
+af = clean(sound,sr)
+
+time = np.linspace(0, len(sound)/sr, num=len(sound))
+fig, ax = plt.subplots(3,figsize=(8,8), sharex=True, sharey=True)
+fig.suptitle('Signals: Original, Noisy, Cleaned', fontsize=14)
+ax[0].plot(time, sound)
+ax[0].set_xlabel('Time (s)')
+ax[0].set_ylabel('Amplitude (dB)')
+ax[0].legend(['Original'], loc='upper right')
+
+ax[1].plot(time, sound2)
+ax[1].set_xlabel('Time (s)')
+ax[1].set_ylabel('Amplitude (dB)')
+ax[1].legend(['Noise added'], loc='upper right')
+
+time = np.linspace(0, len(af)/sr, num=len(af))
+ax[2].plot(time, af)
+ax[2].set_xlabel('Time (s)')
+ax[2].set_ylabel('Amplitude (dB)')
+ax[2].legend(['Cleaned'], loc='upper right')
+
+
+fig, ax = plt.subplots(2,figsize=(7,7), sharex=True, sharey=True)
+fig.suptitle('FFT of Signals: Original + Noise, Cleaned', fontsize=14)
+ax[0].plot(np.fft.fft(sound2), color='orange')
+ax[0].plot(np.fft.fft(sound), color='green')
+ax[0].set_xlabel('Frequency (Hz)')
+ax[0].set_ylabel('Amplitude (dB)')
+ax[0].legend(['Noisy', 'Original'], loc='upper center')
+
+ax[1].plot(np.fft.fft(af))
+ax[1].set_xlabel('Frequency (Hz)')
+ax[1].set_ylabel('Amplitude (dB)')
+ax[1].legend(['Cleaned'], loc='upper center')
+
+
+
+
+y = np.arange(1, len(e_values)+1)
+var_matrix = e_values/np.sum(e_values)
+
+plt.figure(figsize = (12, 12))
+
+plt.title('Variance in principal components', fontsize=16)
+
+plt.plot(y*4, e_values, '*-')
+plt.xticks(y*4, y)
+plt.xlabel('Principal components (PC1-PC40)', fontsize=12)
+plt.ylabel('Eigenvalues', fontsize=12)
+
+plt.figure(figsize = (8, 6))
+plt.title('Fraction of information stored in each principal component', fontsize=16)
+
+plt.plot(y[:10]*4, var_matrix[:10], '*-', color='orange')
+plt.xticks(y[:10]*4, y[:10])
+plt.bar(y[:10]*4, var_matrix[:10], width = 3.5)
+plt.xlabel('Principal components (PC1-PC10)', fontsize = 12)
+plt.ylabel('Fraction of total variance', fontsize=12) 
+
+plt.tight_layout()
+
+
+label=[]
+for i in range(40):
+    label.append(f'mfcc {i+1}')
+
+
+pca_=decomposition.PCA(n_components=2)
+f = pca_.fit_transform(features)
+loadings1 = pca_.components_.T * np.sqrt(pca_.explained_variance_)
+
+value = loadings1.copy()
+
+for i in range(40):
+    for j in range(2):
+        value[i,j]= round(value[i,j], 3-int(floor(log10(abs(value[i,j]))))-1)
+
+l_matrix = pd.DataFrame(value[20:], columns=['PC1', 'PC2'])
+l_matrix2 = pd.DataFrame(value[:20], columns=['PC1', 'PC2'])
+
+fig, ax = plt.subplots(1,1, figsize=(8,8))
+ax.axis('tight')
+ax.axis('off')
+table1 = ax.table(cellText = l_matrix.values, colLabels= l_matrix.columns, rowLabels = label[20:], loc='center')
+table1.scale(0.25,1.5)
+table1.set_fontsize(12)
+ax.set_title('Correlation between MFCC and principal components', fontsize=16)
+plt.show()
+fig, ax = plt.subplots(1,1, figsize=(8,8))
+ax.axis('tight')
+ax.axis('off')
+table2 = ax.table(cellText = l_matrix2.values, colLabels= l_matrix2.columns, rowLabels = label[:20], loc='center')
+table2.scale(0.25,1.5)
+table2.set_fontsize(14)
+ax.set_title('Correlation between MFCC and principal components', fontsize=16)
+plt.show()
+
+
+r = round(var_matrix[0]*100, 3-int(floor(log10(abs(var_matrix[0]*100))))-1)
+r2 = round(var_matrix[1]*100, 3-int(floor(log10(abs(var_matrix[1]*100))))-1)
+
+plt.figure(figsize=(8,8))
+plt.title('Loadings plot', fontsize=16)
+plt.xlabel(f'PC1 ({r}%)', fontsize=12)
+plt.ylabel(f'PC2 ({r2}%)', fontsize=12)
+for i, arrow in enumerate(loadings1):
+    plt.arrow(0, 0, *arrow, color='green')
+    plt.text(*(arrow*1.05), label[i], ha='center', va='center')
